@@ -1,7 +1,24 @@
 const { Client, Intents } = require("discord.js")
 
-const start = async () => {
-  const client = new Client({
+const ENV = {
+  botToken: "yourDiscordToken",
+  channelId: "898666329521934347",
+  interval: 60000,
+  amount: 420,
+  startIndex: 0,
+  killerEmojis: ["🗡️", "🔫", "🔪", "⚔️"],
+  killedEmojis: ["💀", "☠️", "🔥", "💥"],
+}
+
+const randomItem = (array) => {
+  return array[Math.floor(Math.random() * array.length)]
+}
+const randomIndex = (array) => {
+  return Math.floor(Math.random() * array.length)
+}
+
+const startDiscordClient = () => {
+  let client = new Client({
     intents: [
       Intents.FLAGS.GUILDS,
       Intents.FLAGS.GUILD_MESSAGES,
@@ -9,52 +26,83 @@ const start = async () => {
     ],
   })
 
-  client.login("")
+  client.login(ENV.botToken)
 
-  const channel = await client.channels.fetch("898666329521934347", {
+  return client
+}
+
+const start = async () => {
+  let client = startDiscordClient()
+
+  let channel = await client.channels.fetch(ENV.channelId, {
     allowUnknownGuild: true,
   })
 
-  let liveKittens = Array.from({ length: 420 }).map((_, i) => i)
+  let aliveKittens = Array.from({ length: ENV.amount }).map(
+    (_, i) => i + ENV.startIndex
+  )
 
-  let killCount = {}
+  let killcount = {}
 
-  liveKittens.map((id) => {
-    killCount[id] = 0
+  aliveKittens.map((id) => {
+    killcount[id] = []
   })
 
-  let timerId = setInterval(() => {
+  const killOne = () => {
     let msg = ""
+    let deadId = null
+    let killerId = null
 
-    if (liveKittens.length === 1) {
-      msg = `🎉 Winner: #${liveKittens[0]}! Kill count: ${
-        killCount[liveKittens[0]]
-      }`
+    // win condition
+    if (aliveKittens.length === 1) {
+      msg = `.\n\n🎉🎉🎉 **Winner: #${aliveKittens[0]}** 🎉🎉🎉\n\nVictims: ${
+        killcount[aliveKittens[0]].length > 0
+          ? killcount[aliveKittens[0]].map((x) => "#" + x).join(", ")
+          : "none"
+      }\n\n.`
       channel.send(msg)
       console.log(msg)
       clearInterval(timerId)
       return
     }
 
-    const deadIndex = Math.floor(Math.random() * liveKittens.length)
+    const deadIndex = randomIndex(aliveKittens)
 
-    deadId = liveKittens[deadIndex]
-    liveKittens = liveKittens
+    deadId = aliveKittens[deadIndex]
+
+    aliveKittens = aliveKittens
       .slice(0, deadIndex)
-      .concat(liveKittens.slice(deadIndex + 1, liveKittens.length))
+      .concat(aliveKittens.slice(deadIndex + 1, aliveKittens.length))
 
-    const killerId = liveKittens[Math.floor(Math.random() * liveKittens.length)]
+    killerId = randomItem(aliveKittens)
 
-    killCount[killerId] += 1
+    killcount[killerId] = killcount[killerId].concat(deadId)
 
-    msg += `💀 **Kitten #${deadId} was slain** with a kill count of ${killCount[deadId]}`
+    msg += `.\n\n`
+    msg += `${randomItem(
+      ENV.killedEmojis
+    )} **Kitten #${deadId} was slain.** Victims: ${
+      killcount[deadId].length > 0
+        ? killcount[deadId].map((x) => "#" + x).join(", ")
+        : "none"
+    }`
     msg += `\n\n`
-    msg += `🔪 Killed by #${killerId} with a kill count of ${killCount[killerId]}`
+    msg += `${randomItem(
+      ENV.killerEmojis
+    )} **Killed by #${killerId}.** Victims: ${
+      killcount[killerId].length > 0
+        ? killcount[killerId].map((x) => "#" + x).join(", ")
+        : "none"
+    }`
     msg += `\n\n`
-    msg += `🐈 Total Alive: ${liveKittens.length}`
+    msg += `Total Alive: ${aliveKittens.length}`
+    msg += `\n\n.`
+
     console.log(msg)
     channel.send(msg)
-  }, 60000)
+  }
+
+  let timerId = setInterval(killOne, ENV.interval)
 }
 
 start()
